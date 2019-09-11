@@ -34,8 +34,4 @@ Route::group(['prefix' => 'admin', 'middleware' => 'admin'], function (){
     Route::post('close_ticket/{ticket_id}', 'TicketsController@close');
  
 });
-
-
-Auth::routes();
-
-Route::get('/home', 'HomeController@index')->name('home');
+ 

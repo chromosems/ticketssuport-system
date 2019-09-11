@@ -1,13 +1,21 @@
 <?php
 
+
 namespace App\Http\Controllers;
-
-use Illuminate\Http\Request;
-use App\Ticket;
+ 
 use App\Category;
-
+use App\Ticket;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use App\Mailers\AppMailer;
+ 
 class TicketsController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth');
+    }
+ 
     /**
      * Display a listing of the resource.
      *
@@ -15,11 +23,11 @@ class TicketsController extends Controller
      */
     public function index()
     {
-        //
         $tickets = Ticket::paginate(10);
-        return view('tickets.index',compact('tickets'));
+ 
+        return view('tickets.index', compact('tickets'));
     }
-
+ 
     /**
      * Show the form for creating a new resource.
      *
@@ -27,11 +35,11 @@ class TicketsController extends Controller
      */
     public function create()
     {
-        //
         $categories = Category::all();
-        return view('tickets.create', compact('tickets'));
+ 
+        return view('tickets.create', compact('categories'));
     }
-
+ 
     /**
      * Store a newly created resource in storage.
      *
@@ -40,8 +48,7 @@ class TicketsController extends Controller
      */
     public function store(Request $request, AppMailer $mailer)
     {
-        //
-         $this->validate($request, [
+        $this->validate($request, [
             'title' => 'required',
             'category' => 'required',
             'priority' => 'required',
@@ -52,7 +59,7 @@ class TicketsController extends Controller
             'title' => $request->input('title'),
             'user_id' => Auth::user()->id,
             'ticket_id' => strtoupper(str_random(10)),
-            'category_id' => $request->input('category'),
+            'category_id' => $request->input('category_id'),
             'priority' => $request->input('priority'),
             'message' => $request->input('message'),
             'status' => "Open"
@@ -62,57 +69,41 @@ class TicketsController extends Controller
  
         $mailer->sendTicketInformation(Auth::user(), $ticket);
  
-        return redirect()->back()->with("status", "A ticket with ID: #$ticket->ticket_id has been opened.")
-
+        return redirect()->back()->with("status", "A ticket with ID: #$ticket->ticket_id has been opened.");
     }
+ 
     public function userTickets()
     {
-        $tickets = Ticket::where('user_id',Auth::user()->id)->paginate(10);
-        return view('tickets.user_tickets',compact('tickets'));
+        $tickets = Ticket::where('user_id', Auth::user()->id)->paginate(10);
+ 
+        return view('tickets.user_tickets', compact('tickets'));
     }
-
+ 
     /**
      * Display the specified resource.
      *
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function show($id)
+    public function show($ticket_id)
     {
-        //
+        $ticket = Ticket::where('ticket_id', $ticket_id)->firstOrFail();
+ 
+        return view('tickets.show', compact('ticket'));
     }
-
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function edit($id)
+ 
+    public function close($ticket_id, AppMailer $mailer)
     {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function update(Request $request, $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy($id)
-    {
-        //
+        $ticket = Ticket::where('ticket_id', $ticket_id)->firstOrFail();
+ 
+        $ticket->status = "Closed";
+ 
+        $ticket->save();
+ 
+        $ticketOwner = $ticket->user;
+ 
+        $mailer->sendTicketStatusNotification($ticketOwner, $ticket);
+ 
+        return redirect()->back()->with("status", "The ticket has been closed.");
     }
 }
